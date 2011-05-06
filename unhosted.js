@@ -99,14 +99,15 @@ var WebFinger = function() {
 
 var OAuth = function () {
 	var oAuth = {}
-	oAuth.dance = function(oAuthDomain, userName, app) {
+	oAuth.dance = function(oAuthDomain, userName, app, compartment) {
 		window.location = oAuthDomain
-					+"oauth2/auth"
-					+"?client_id="+app
-					+"&redirect_uri="+encodeURIComponent(document.location.href)
-					+"&scope="+document.domain
-					+"&response_type=token"
-					+"&user_name="+userName;
+					+ "oauth2/auth"
+					+ "?client_id=" + encodeURIComponent(app)
+					+ "&redirect_uri=" + encodeURIComponent(document.location.href)
+					+ "&scope=" + encodeURIComponent(document.domain)
+					+ "&response_type=token"
+					+ (compartment ? "&compartment=" + encodeURIComponent(compartment) : '')
+					+ "&user_name=" + encodeURIComponent(userName);
 	}
 	oAuth.revoke = function() {
 		localStorage.removeItem("OAuth2-cs::token");
@@ -136,19 +137,20 @@ var DAV = function() {
 		var hash = Base64.encode(tok);
 		return "Basic " + hash;
 	}
-	keyToUrl = function(key) {
+	dav.keyToUrl = function(key) {
 		var userNameParts = localStorage.getItem("unhosted::userName").split("@");
 		var resource = document.domain;
 		var url = localStorage.getItem("unhosted::davDomain")
-			+"webdav/"+userNameParts[1]
-			+"/"+userNameParts[0]
-			+"/"+resource
-			+"/"+key;
+			+ "webdav/" + userNameParts[1]
+			+ "/" + userNameParts[0]
+			+ "/" + resource
+			+ (this.compartment ? '/' + this.compartment : '')
+			+ "/" + key;
 		return url;
 	}
 	dav.get = function(key) {
 		var xhr = new XMLHttpRequest();
-		xhr.open("GET", keyToUrl(key), false);
+		xhr.open("GET", this.keyToUrl(key), false);
 		xhr.setRequestHeader("Authorization", makeBasicAuth(localStorage.getItem("unhosted::userName"), localStorage.getItem("OAuth2-cs::token")));
 		xhr.withCredentials = "true";
 		xhr.send();
@@ -157,18 +159,18 @@ var DAV = function() {
 		} if(xhr.status == 404) {
 			return null;
 		} else {
-			alert("error: got status "+xhr.status+" when doing basic auth GET on url "+keyToUrl(key));
+			alert("error: got status "+xhr.status+" when doing basic auth GET on url "+ this.keyToUrl(key));
 		}
 	}
 	dav.put = function(key, value) {
 		var text = JSON.stringify(value);
 		var xhr = new XMLHttpRequest();
-		xhr.open("PUT", keyToUrl(key), false);
+		xhr.open("PUT", this.keyToUrl(key), false);
 		xhr.setRequestHeader("Authorization", makeBasicAuth(localStorage.getItem("unhosted::userName"), localStorage.getItem("OAuth2-cs::token")));
 		xhr.withCredentials = "true";
 		xhr.send(text);
 		if(xhr.status != 200 && xhr.status != 201 && xhr.status != 204) {
-			alert("error: got status "+xhr.status+" when doing basic auth PUT on url "+keyToUrl(key));
+			alert("error: got status "+xhr.status+" when doing basic auth PUT on url "+ this.keyToUrl(key));
 		}
 	}
 	return dav;
@@ -179,9 +181,10 @@ var DAV = function() {
  // Unhosted //
 //////////////
 
-var Unhosted = function() {
+var Unhosted = function(compartment) {
 	var unhosted = {};
 	unhosted.dav = DAV();
+	unhosted.dav.compartment = compartment
 
 	unhosted.setUserName = function(userName) {
 		if(userName == null) {
@@ -193,7 +196,7 @@ var Unhosted = function() {
 			var davDomain = WebFinger().getDavDomain(userName, 0, 1);
 			if(davDomain != null) {
 				localStorage.setItem("unhosted::davDomain", davDomain);
-				OAuth().dance(davDomain, userName, location.host + location.pathname);
+				OAuth().dance(davDomain, userName, location.host + location.pathname, this.dav.compartment);
 			}
 		}
 	}
