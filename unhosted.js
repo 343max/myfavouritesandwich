@@ -104,9 +104,8 @@ var OAuth = function () {
 					+ "oauth2/auth"
 					+ "?client_id=" + encodeURIComponent(app)
 					+ "&redirect_uri=" + encodeURIComponent(document.location.href)
-					+ "&scope=" + encodeURIComponent(document.domain)
+					+ "&scope=" + encodeURIComponent(document.domain) + (compartment ? "/" + encodeURIComponent(compartment) : '')
 					+ "&response_type=token"
-					+ (compartment ? "&compartment=" + encodeURIComponent(compartment) : '')
 					+ "&user_name=" + encodeURIComponent(userName);
 	}
 	oAuth.revoke = function() {
