@@ -147,18 +147,39 @@ var DAV = function() {
 			+ "/" + key;
 		return url;
 	}
-	dav.get = function(key) {
+	dav.get = function(key, successCallback) {
 		var xhr = new XMLHttpRequest();
-		xhr.open("GET", this.keyToUrl(key), false);
+		var async = !!successCallback;
+		xhr.open("GET", this.keyToUrl(key), async);
 		xhr.setRequestHeader("Authorization", makeBasicAuth(localStorage.getItem("unhosted::userName"), localStorage.getItem("OAuth2-cs::token")));
 		xhr.withCredentials = "true";
+
+		if(!successCallback) {
+			successCallback = function(data) {
+				return data;
+			}
+		}
+
+		var readyStateChange = function() {
+			if(xhr.readyState == 4) {
+				if(xhr.status == 200) {
+					return successCallback(JSON.parse(xhr.responseText));
+				} if(xhr.status == 404) {
+					return successCallback(null);
+				} else {
+					alert("error: got status "+xhr.status+" when doing basic auth GET on url "+ this.keyToUrl(key));
+				}
+			}
+		}
+
+		if(async) {
+			xhr.onreadystatechange = readyStateChange;
+		}
+
 		xhr.send();
-		if(xhr.status == 200) {
-			return JSON.parse(xhr.responseText);
-		} if(xhr.status == 404) {
-			return null;
-		} else {
-			alert("error: got status "+xhr.status+" when doing basic auth GET on url "+ this.keyToUrl(key));
+
+		if(!async) {
+			return readyStateChange();
 		}
 	}
 	dav.put = function(key, value) {
